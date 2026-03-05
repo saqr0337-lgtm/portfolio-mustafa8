@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مهام اليوم – PWA نهائي</title>
+<title>مهام اليوم – PWA كامل</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
+<meta name="theme-color" content="#7c3aed">
 <style>
-  body { background: linear-gradient(to bottom, #fef9ff, #dbeafe); font-family: sans-serif; }
-  .task-color-0 { background-color:#fef3c7; }
-  .task-color-1 { background-color:#dcfce7; }
-  .task-color-2 { background-color:#dbeafe; }
-  .task-color-3 { background-color:#fde2e4; }
-  .task-color-4 { background-color:#ede9fe; }
+body { background: linear-gradient(to bottom, #fef9ff, #dbeafe); font-family: sans-serif; }
+.task-color-0 { background-color:#fef3c7; }
+.task-color-1 { background-color:#dcfce7; }
+.task-color-2 { background-color:#dbeafe; }
+.task-color-3 { background-color:#fde2e4; }
+.task-color-4 { background-color:#ede9fe; }
 </style>
 </head>
 <body class="flex flex-col items-center p-6">
@@ -48,49 +49,12 @@
 <audio id="alarmSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 
 <script>
-// =================== PWA Manifest ديناميكي ===================
-const manifest = {
-  name: "مهام اليوم",
-  short_name: "Tasks",
-  start_url: "index.html",
-  display: "standalone",
-  background_color: "#dbeafe",
-  theme_color: "#7c3aed",
-  icons: [
-    { src: "icon.png", sizes: "192x192", type: "image/png" },
-    { src: "icon.png", sizes: "512x512", type: "image/png" }
-  ]
-};
-const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-const manifestURL = URL.createObjectURL(manifestBlob);
-const link = document.createElement('link');
-link.rel = 'manifest';
-link.href = manifestURL;
-document.head.appendChild(link);
-
-// =================== Service Worker داخلي ===================
-const swCode = `
-const CACHE_NAME = "tasks-pwa-cache-v1";
-const urlsToCache = ["index.html","icon.png"];
-self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(urlsToCache))); });
-self.addEventListener("fetch", event => { event.respondWith(caches.match(event.request).then(r=>r||fetch(event.request))); });
-self.addEventListener("push", event => {
-  const data = event.data ? event.data.text() : "تذكير بمهمة!";
-  event.waitUntil(self.registration.showNotification("📌 مهام اليوم", { body: data, icon: "icon.png" }));
-});
-`;
-
-// تحويل Service Worker لديناميكي
-const swBlob = new Blob([swCode], {type:'application/javascript'});
-const swURL = URL.createObjectURL(swBlob);
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register(swURL).then(()=>console.log('SW مسجل ✅')).catch(err=>console.error('فشل تسجيل SW',err));
+// =================== إشعارات الموبايل ===================
+if("Notification" in window && Notification.permission!=="granted"){
+    Notification.requestPermission();
 }
 
-// =================== إشعارات الموبايل ===================
-if("Notification" in window && Notification.permission!=="granted"){Notification.requestPermission();}
-
-// =================== كود المهام ===================
+// =================== مهام اليوم + العد التنازلي ===================
 const taskInput=document.getElementById('taskInput');
 const timeInput=document.getElementById('timeInput');
 const repeatInput=document.getElementById('repeatInput');
@@ -125,7 +89,7 @@ stopAllBtn.addEventListener('click',()=>{stopAll=true; alarmSound.pause(); alert
 
 function showNotification(task){
   if(Notification.permission==="granted"){
-    new Notification("📌 تذكير بمهمة",{body:task.text+" ⏰ "+task.time,icon:"icon.png"});
+    new Notification("📌 تذكير بمهمة",{body:task.text+" ⏰ "+task.time,icon:"https://via.placeholder.com/128"});
   }
 }
 
@@ -133,23 +97,22 @@ function renderTasks(){
   taskList.innerHTML='';
   tasks.forEach(task=>{
     const li=document.createElement('li');
-    li.className=\`p-3 rounded flex flex-col shadow task-color-\${task.color}\`;
+    li.className=`p-3 rounded flex flex-col shadow task-color-${task.color}`;
     const info=document.createElement('div');
-    info.innerHTML=\`📌 \${task.text} 🔔 \${task.time} 🔁 \${task.repeat} مرات 📅 \${task.days.join(', ')}\`;
+    info.innerHTML=`📌 ${task.text} 🔔 ${task.time} 🔁 ${task.repeat} مرات 📅 ${task.days.join(', ')}`;
     li.appendChild(info);
 
     const countdown=document.createElement('span'); countdown.className="font-mono mt-1"; li.appendChild(countdown);
 
-    const doneBtn=document.createElement('button'); 
-    doneBtn.textContent="✅"; 
-    doneBtn.className="mt-2 text-green-700 font-bold self-start"; 
+    const doneBtn=document.createElement('button');
+    doneBtn.textContent="✅";
+    doneBtn.className="mt-2 text-green-700 font-bold self-start";
     doneBtn.onclick=()=>{tasks=tasks.filter(t=>t.id!==task.id);renderTasks();};
     li.appendChild(doneBtn);
 
     taskList.appendChild(li);
 
     let repetition=0;
-
     function updateCountdown(){
       if(stopAll) return;
       const now=new Date();
@@ -175,10 +138,9 @@ function renderTasks(){
       } else {
         const m=Math.floor(diff/60000);
         const s=Math.floor((diff%60000)/1000);
-        countdown.textContent=\`\${m} دقيقة : \${s} ثانية\`;
+        countdown.textContent=`${m} دقيقة : ${s} ثانية`;
       }
     }
-
     updateCountdown();
     setInterval(updateCountdown,1000);
   });
